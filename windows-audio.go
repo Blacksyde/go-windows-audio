@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	ps "github.com/bhendo/go-powershell"
 	"github.com/bhendo/go-powershell/backend"
@@ -148,7 +149,7 @@ func setAudioDeviceByIndex(index int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(devices[index-1].Type, "device set to", devices[index-1].Name)
+	fmt.Println(devices[index-1].Type, "device set to", devices[index-1].Name, "\n")
 }
 
 func setAudioDeviceByID(ID string) {
@@ -156,7 +157,7 @@ func setAudioDeviceByID(ID string) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Audio device with ID", ID, "enabled")
+	fmt.Println("Audio device with ID", ID, "enabled", "\n")
 }
 
 func printAudioDeviceList() {
@@ -177,6 +178,24 @@ func printPlaybackDevice() {
 	fmt.Println(stdout)
 }
 
+func playbackMute() bool {
+	stdout, _, err := shell.Execute("Get-AudioDevice -PlaybackMute")
+	if err != nil {
+		panic(err)
+	}
+	out := strings.TrimSpace(stdout)
+	b, err := strconv.ParseBool(out)
+	return b
+}
+
+func playbackMuteToggle() {
+	_, _, err := shell.Execute("Set-AudioDevice -PlaybackMuteToggle")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Playback device mute toggled.\n")
+}
+
 func printRecordingDevice() {
 	stdout, _, err := shell.Execute("Get-AudioDevice -Recording")
 	if err != nil {
@@ -186,6 +205,19 @@ func printRecordingDevice() {
 	fmt.Println(stdout)
 }
 
+func recordingMute() bool {
+	stdout, _, err := shell.Execute("Get-AudioDevice -RecordingMute")
+	if err != nil {
+		panic(err)
+	}
+	out := strings.TrimSpace(stdout)
+	b, err := strconv.ParseBool(out)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func listenForKeys() {
 	err := keyboard.Open()
 	if err != nil {
@@ -193,7 +225,7 @@ func listenForKeys() {
 	}
 	defer keyboard.Close()
 
-	fmt.Println("Press ESC to quit")
+	fmt.Println("Press ESC to quit\n")
 	for {
 		char, key, err := keyboard.GetKey()
 		//fmt.Printf("You pressed: %q\r\n", char)
@@ -211,14 +243,19 @@ func listenForKeys() {
 				if st == "p" {
 					fmt.Println("Current playback device:")
 					printPlaybackDevice()
+					fmt.Println("Muted:", playbackMute(), "\n")
 				}
 				if st == "r" {
 					fmt.Println("Current recording device:")
 					printRecordingDevice()
+					fmt.Println("Muted:", recordingMute(), "\n")
 				}
 				if st == "l" {
 					fmt.Println("Audio device list:")
 					printAudioDeviceList()
+				}
+				if st == "m" {
+					playbackMuteToggle()
 				}
 			}
 		}
