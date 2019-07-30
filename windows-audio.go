@@ -1,3 +1,5 @@
+//Author: Alex Blacketor
+
 package main
 
 import (
@@ -5,8 +7,9 @@ import (
 	"regexp"
 	"strconv"
 
-	ps "github.com/gorillalabs/go-powershell"
-	"github.com/gorillalabs/go-powershell/backend"
+	ps "github.com/bhendo/go-powershell"
+	"github.com/bhendo/go-powershell/backend"
+	"github.com/eiannone/keyboard"
 )
 
 type WindowsAudioDevice struct {
@@ -22,13 +25,13 @@ var (
 	shell ps.Shell
 	back  *backend.Local
 
-	devices []WindowsAudioDevice
+	devices       []WindowsAudioDevice
+	currentDevice WindowsAudioDevice
 
 	err error
 )
 
 func initPowerShell() {
-	// start a local powershell process that exits just before the program does
 	shell, err = ps.New(back)
 	if err != nil {
 		panic(err)
@@ -57,14 +60,7 @@ func initPowerShell() {
 	}
 }
 
-func main() {
-	// choose a backend
-	back = &backend.Local{}
-
-	initPowerShell()
-	defer shell.Exit()
-
-	// Commands using the module
+func populateDevices() {
 	stdout, _, err := shell.Execute("Get-AudioDevice -List")
 	if err != nil {
 		panic(err)
@@ -101,7 +97,7 @@ func main() {
 
 	//fmt.Println("Field 0 of device at index 0:", deviceList[0][0])
 
-	devices := make([]WindowsAudioDevice, len(deviceList))
+	devices = make([]WindowsAudioDevice, len(deviceList))
 
 	for i, d := range deviceList {
 		var device WindowsAudioDevice
@@ -121,8 +117,112 @@ func main() {
 		devices[i] = device
 	}
 
-	fmt.Println(devices)
+	//fmt.Println(devices)
+}
 
+func init() {
+	back = &backend.Local{}
+	initPowerShell()
+	populateDevices()
+}
+
+func main() {
+	//Exit powershell when the program exits
+	defer shell.Exit()
+
+	//printAudioDeviceList()
+
+	//setAudioDeviceByIndex(devices[2].Index)
+	//setAudioDeviceByIndex(devices[3].Index)
+
+	//printPlaybackDevice()
+	//printRecordingDevice()
+
+	//setAudioDeviceByID(devices[0].ID)
+
+	listenForKeys()
+}
+
+func setAudioDeviceByIndex(index int) {
+	_, _, err := shell.Execute("Set-AudioDevice -Index " + strconv.Itoa(index))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(devices[index-1].Type, "device set to", devices[index-1].Name)
+}
+
+func setAudioDeviceByID(ID string) {
+	_, _, err := shell.Execute("Set-AudioDevice -ID " + "\"" + ID + "\"")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Audio device with ID", ID, "enabled")
+}
+
+func printAudioDeviceList() {
+	stdout, _, err := shell.Execute("Get-AudioDevice -List")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(stdout)
+}
+
+func printPlaybackDevice() {
+	stdout, _, err := shell.Execute("Get-AudioDevice -Playback")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(stdout)
+}
+
+func printRecordingDevice() {
+	stdout, _, err := shell.Execute("Get-AudioDevice -Recording")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(stdout)
+}
+
+func listenForKeys() {
+	err := keyboard.Open()
+	if err != nil {
+		panic(err)
+	}
+	defer keyboard.Close()
+
+	fmt.Println("Press ESC to quit")
+	for {
+		char, key, err := keyboard.GetKey()
+		//fmt.Printf("You pressed: %q\r\n", char)
+		if err != nil {
+			panic(err)
+		} else if key == keyboard.KeyEsc {
+			break
+		} else {
+			ind := int(char - '0')
+			//fmt.Println(ind)
+			if ind >= 1 && ind < len(devices)+1 {
+				setAudioDeviceByIndex(ind)
+			} else {
+				st := string(char)
+				if st == "p" {
+					fmt.Println("Current playback device:")
+					printPlaybackDevice()
+				}
+				if st == "r" {
+					fmt.Println("Current recording device:")
+					printRecordingDevice()
+				}
+				if st == "l" {
+					fmt.Println("Audio device list:")
+					printAudioDeviceList()
+				}
+			}
+		}
+	}
 }
 
 /*
